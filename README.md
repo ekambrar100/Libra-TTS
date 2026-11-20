@@ -102,14 +102,14 @@ sentences, 0.3 s).
 ```python
 tts.synthesize("It can keep a secret.", voice="nina", style="whispering")
 tts.synthesize("Okay, you win.", voice="jon", style="wry")
-tts.synthesize("Tomorrow? Light rain.", voice="aliya", style="tense", pace="slow")
+tts.synthesize("Tomorrow? Light rain.", voice="aliya", style="calm", pace="slow")
 ```
 
 ```bash
 libra-tts "Good news, everyone!" --style excited -o news.wav
 ```
 
-Styles: `warm cheerful excited sad tense frightened angry calm serious wry tender whispering dramatic documentary`, with
+Styles: `warm cheerful excited sad frightened calm serious wry tender whispering dramatic documentary`, with
 `pace="slow"` or `"fast"`. 
 
 
