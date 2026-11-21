@@ -27,8 +27,8 @@
 - **Lowest English error rate of the open models we tested**: 1.64% WER, ahead of Magpie-357M, Kokoro-82M and both Qwen3-TTS models (2.74% at 1.7B, 3.21% at 0.6B).
 - **16 languages**, English, Chinese, Japanese, Korean,
 German, French, Spanish, Italian, Portuguese, Russian, Arabic, Hindi, Punjabi, Bengali, Urdu and Indonesian.
-- **Fast**: one sentence at a time 7.7x faster than real time on a MacBook Pro and 8.7x on an RTX 3090; about 70x
-  reading long text on either; 2.4x on a CPU with ONNX.
+- **Fast**: one sentence at a time 7.7x faster than real time on a MacBook Pro and 8.7x on an RTX 3090; 44x
+  reading long text on a MacBook Pro and 72x on an RTX 3090; 2.4x on a CPU with ONNX.
 - **Runs everywhere**: Apple silicon (MLX), NVIDIA GPUs on Windows and Linux (PyTorch with CUDA graphs) and any
   CPU (ONNX Runtime); the live demo reads on a GPU.
 
@@ -50,8 +50,9 @@ tts.synthesize("今天天气很好，我们去公园散步吧。", voice="aliya"
 tts.synthesize("Hola, ¿qué tal?", voice="jon", lang="es")           # Latin-script languages: pass lang
 ```
 
-Long text is split at sentence ends and read up to 64 utterances at a time. On Apple silicon Libra runs on the GPU through
-[MLX](https://github.com/ml-explore/mlx).
+Long text is split at sentence ends and read up to 64 utterances at a time. By default each sentence is read in the
+language of its script, so one text can mix languages (English with Punjabi, say). On Apple silicon Libra runs on the
+GPU through [MLX](https://github.com/ml-explore/mlx).
 
 ## Windows and Linux
 
@@ -153,7 +154,7 @@ test set, 100 sentences per language ("–": the model does not cover all ten). 
 | peak memory | **2.0 GB** | 3.8 GB | 5.8 GB |
 
 20 English sentences of 5-25 s, end to end (text in, 24 kHz audio out); all three on the same MLX engine. Long text
-is read up to 64 utterances at a time: 15 minutes of audio in 13 seconds (69x real time, 4 GB peak). ONNX Runtime on the
+is read up to 64 utterances at a time: 15 minutes of audio in 20 seconds (44x real time, 4 GB peak). ONNX Runtime on the
 same Mac's CPU: 2.4x real time.
 
 | NVIDIA RTX 3090 (PyTorch, CUDA) | Libra TTS |

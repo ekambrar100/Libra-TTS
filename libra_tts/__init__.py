@@ -3,4 +3,4 @@ from .api import LibraTTS
 from .config import Sampling
 
 __all__ = ["LibraTTS", "Sampling"]
-__version__ = "0.1.0"
+__version__ = "0.1.1"

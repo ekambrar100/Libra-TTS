@@ -8,7 +8,8 @@ written. Three steps cover what written text alone gets wrong:
   ja  kanji and numbers become their hiragana reading (pyopenjtalk): a kanji's reading depends on the word
   zh  rare multi-character tokens are read character by character
 
-Long text is split at sentence ends into utterances of at most ``MAX_SECONDS`` of speech.
+Long text is split at sentence ends into utterances of at most ``MAX_SECONDS`` of speech. With language "auto" each
+sentence is read in the language of its script (``language_runs``), so one text can mix languages.
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ import json
 import re
 import unicodedata
 import warnings
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from .config import Config
 from .prompt import Tokenizer
@@ -252,6 +253,47 @@ def sentences(text: str) -> List[str]:
         elif s:
             out.append(s)
     return out
+
+
+LATIN = re.compile(r"[A-Za-zÀ-ɏ]")
+
+
+def sentence_language(s: str, ja: bool = False, ur: bool = False) -> Optional[str]:
+    """One sentence's language: the script most of its letters are in (Latin = English), None without letters. Han is
+    Japanese in a sentence with kana or when ``ja`` (the text has kana elsewhere), else Chinese; Arabic script is Urdu
+    when ``ur`` (the text has letters only Urdu uses)."""
+    sc = dict(SCRIPTS)
+    n = {lang: len(sc[lang].findall(s)) for lang in ("ko", "hi", "pa", "bn", "ar", "ru")}
+    kana = len(sc["ja"].findall(s))
+    n["ja" if kana or ja else "zh"] = kana + len(HAN.findall(s))
+    n["en"] = len(LATIN.findall(s))
+    lang = max(n, key=n.get)
+    if not n[lang]:
+        return None
+    return "ur" if lang == "ar" and ur else lang
+
+
+def language_runs(text: str) -> List[Tuple[str, str]]:
+    """Text read with language "auto" as (language, text) runs: each line split into sentences, each sentence in its
+    own language (sentence_language), neighbours in the same language joined. A sentence without letters stays with
+    the one before it. Text in one language is one run, as written."""
+    sc = dict(SCRIPTS)
+    ja, ur = bool(sc["ja"].search(text)), bool(sc["ur"].search(text))
+    runs: List[list] = []
+    lead: List[str] = []
+    for line in text.splitlines():
+        for s in sentences(line):
+            lang = sentence_language(s, ja, ur)
+            if lang is None and not runs:
+                lead.append(s)
+            elif runs and lang in (None, runs[-1][0]):
+                runs[-1][1].append(s)
+            else:
+                runs.append([lang, lead + [s]])
+                lead = []
+    if len(runs) <= 1:
+        return [(runs[0][0] if runs else detect_language(text), text)] if text.strip() else []
+    return [(lang, ("" if lang in ("ja", "zh") else " ").join(p)) for lang, p in runs]
 
 
 def _pieces(s: str, budget: int) -> List[str]:

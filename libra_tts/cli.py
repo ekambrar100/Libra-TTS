@@ -13,7 +13,7 @@ def main(argv=None):
     ap.add_argument("-o", "--out", default="libra.wav", help="output .wav (default libra.wav)")
     ap.add_argument("-v", "--voice", help="voice (default nina); --list shows all")
     ap.add_argument("-l", "--lang", default="auto", help="language code (en zh ja ko de fr es it pt ru ar hi pa bn ur "
-                    "id) or auto (by script; Latin script = English)")
+                    "id) or auto (each sentence by its script; Latin script = English)")
     ap.add_argument("-s", "--style", help="speaking style (warm, cheerful, whispering, ...); --list shows all")
     ap.add_argument("--pace", choices=["slow", "fast"], help="with a style: slower or faster")
     ap.add_argument("--seed", type=int, default=0)

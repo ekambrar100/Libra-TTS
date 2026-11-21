@@ -8,7 +8,7 @@ from typing import List, Optional
 import numpy as np
 
 from .config import Config, Sampling, model_dir
-from .frontend import FrontEnd, detect_language
+from .frontend import FrontEnd, language_runs
 from .prompt import Tokenizer, build_prompt
 
 
@@ -76,20 +76,21 @@ class LibraTTS:
                    pace: Optional[str] = None, seed: int = 0, sampling: Optional[Sampling] = None,
                    gap: float = 0.3) -> np.ndarray:
         """Speech for ``text`` as float32 samples at ``sample_rate``. lang: an ISO code ("en", "zh", ...) or "auto"
-        (by script; Latin script = English). style: "warm", "whispering", ... (``styles``); pace: "slow" or "fast",
-        with a style. Inline tags in the text (``tags``: <laugh>, <sigh>, ...) are performed where they stand. Long
-        text is read utterance by utterance, joined by ``gap`` s."""
+        (each sentence by its script, so one text can mix languages; Latin script = English). style: "warm",
+        "whispering", ... (``styles``); pace: "slow" or "fast", with a style. Inline tags in the text (``tags``:
+        <laugh>, <sigh>, ...) are performed where they stand. Long text is read utterance by utterance, joined by
+        ``gap`` s."""
         voice = voice or self.cfg.default_voice
-        lang = detect_language(text) if lang == "auto" else lang
+        runs = language_runs(text) if lang == "auto" else [(lang, text)]
         s = sampling or self.cfg.sampling
         instruction = self.cfg.style_text(style, pace)
         style_ids = self.tok.encode_style(instruction) if instruction else None
-        utts = self.front.utterances(text, lang)
+        utts = [(lg, u) for lg, t in runs for u in self.front.utterances(t, lg)]
         if not utts:
             return np.zeros(0, np.float32)
-        cps = self.cfg.language(lang)["chars_per_second"]
-        prompts = [build_prompt(self.cfg, self.front.encode(u, lang), voice, lang, style_ids) for u in utts]
-        caps = [min(self.cfg.max_frames, int(len(u) / cps * self.cfg.frame_rate * 2.5) + 75) for u in utts]
+        prompts = [build_prompt(self.cfg, self.front.encode(u, lg), voice, lg, style_ids) for lg, u in utts]
+        caps = [min(self.cfg.max_frames, int(len(u) / self.cfg.language(lg)["chars_per_second"] * self.cfg.frame_rate
+                                              * 2.5) + 75) for lg, u in utts]
         seeds = [(seed * 1000003 + 7919 * i) & 0x7FFFFFFF for i in range(len(utts))]
         if self.backend_name in ("mlx", "cuda"):
             B = self.batch_size
