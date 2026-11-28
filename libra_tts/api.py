@@ -12,6 +12,26 @@ from .frontend import FrontEnd, language_runs
 from .prompt import Tokenizer, build_prompt
 
 
+def end_run_on(audio: np.ndarray, estimated_frames: float, sample_rate: int = 24000, frame_rate: float = 12.5,
+               silence_db: float = -50.0, silent_s: float = 3.5, min_fraction: float = 0.3,
+               tail_s: float = 0.35) -> np.ndarray:
+    """An utterance the voice has finished but kept padding with near-silence instead of stopping: once speech has
+    been heard, ``silent_s`` of consecutive near-silent frames (RMS at or below ``silence_db`` dBFS) ends it, but not
+    before ``min_fraction`` of its estimated frames; ``tail_s`` of the silence after the last voiced frame is kept."""
+    n = int(round(sample_rate / frame_rate))
+    k = len(audio) // n
+    loud = np.square(audio[:k * n].reshape(k, n).astype(np.float64)).mean(1) > 10 ** (silence_db / 10)
+    need = max(1, int(round(silent_s * frame_rate)))
+    voiced, run, last = False, 0, 0
+    for i, v in enumerate(loud):
+        if v:
+            voiced, run, last = True, 0, i + 1
+        elif voiced:
+            run += 1
+            if run >= need and i + 1 >= min_fraction * estimated_frames:
+                return audio[:last * n + int(round(tail_s * sample_rate))]
+    return audio
+
 
 def _default_backend() -> str:
     if sys.platform == "darwin" and platform.machine() == "arm64":
@@ -89,8 +109,8 @@ class LibraTTS:
         if not utts:
             return np.zeros(0, np.float32)
         prompts = [build_prompt(self.cfg, self.front.encode(u, lg), voice, lg, style_ids) for lg, u in utts]
-        caps = [min(self.cfg.max_frames, int(len(u) / self.cfg.language(lg)["chars_per_second"] * self.cfg.frame_rate
-                                              * 2.5) + 75) for lg, u in utts]
+        est = [len(u) / self.cfg.language(lg)["chars_per_second"] * self.cfg.frame_rate for lg, u in utts]
+        caps = [min(self.cfg.max_frames, int(e * 2.5) + 75) for e in est]
         seeds = [(seed * 1000003 + 7919 * i) & 0x7FFFFFFF for i in range(len(utts))]
         if self.backend_name in ("mlx", "cuda"):
             B = self.batch_size
@@ -100,8 +120,8 @@ class LibraTTS:
             codes = [self.backend.generate(p, sd, cap, s) for p, sd, cap in zip(prompts, seeds, caps)]
         pause = np.zeros(int(gap * self.sample_rate), np.float32)
         parts: List[np.ndarray] = []
-        for c in codes:
-            parts += [self.backend.decode(c), pause]
+        for c, e in zip(codes, est):
+            parts += [end_run_on(self.backend.decode(c), e, self.sample_rate, self.cfg.frame_rate), pause]
         return np.concatenate(parts[:-1])
 
     def save(self, path: str, audio: np.ndarray):

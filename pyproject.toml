@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libra-tts"
-version = "0.1.0"
+version = "0.1.1"
 description = "Libra TTS: fast multilingual text to speech (16 languages, 8 voices)"
 readme = "README.md"
 license = "Apache-2.0"

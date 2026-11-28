@@ -79,11 +79,15 @@ def fold(word: str) -> str:
 class EnglishLexicon:
     """Whole-word matches, longest entry first; case and accents folded unless an entry is marked ``exact`` (Visa,
     Puma: also common words). A trailing 's adds the plural ending; a one-word entry may be said as several words
-    (WWII). Abbreviations from the letter list are hinted where they are written in capitals in mixed-case text."""
+    (WWII). Abbreviations from the letter list are hinted letter by letter where they are written in capitals in
+    mixed-case text."""
 
     def __init__(self, lexicon: str, acronyms: str):
-        self.acronyms = {l.strip() for l in open(acronyms, encoding="utf-8") if l.strip() and not l.startswith("#")}
-        self.acronyms -= {"TTS"}
+        self.acronyms: Dict[str, bool] = {}  # abbreviation -> one hint for the whole (joined) instead of one per letter
+        for line in open(acronyms, encoding="utf-8"):
+            if line.strip() and not line.startswith("#"):
+                name, *form = line.split()
+                self.acronyms[name] = form == ["joined"]
         self.entries: Dict[tuple, List[List[str]]] = {}
         for line in open(lexicon, encoding="utf-8"):
             if not line.strip() or line.startswith("#"):
@@ -101,7 +105,10 @@ class EnglishLexicon:
         letters = [c for c in text if c.isalpha()]
         if letters and sum(c.isupper() for c in letters) / len(letters) > 0.5:  # a heading or shouting: as written
             return None
-        return [arpa_to_ipa(spell_arpa(m.group(1), m.group(2)))]
+        name, suffix = m.groups()
+        if self.acronyms[name]:
+            return [arpa_to_ipa(spell_arpa(name, suffix))]
+        return [arpa_to_ipa(spell_arpa(c, suffix if i == len(name) - 1 else "")) for i, c in enumerate(name)]
 
     def lookup(self, words: Sequence[str]) -> Optional[List[str]]:
         tries = [(list(words), None)]
